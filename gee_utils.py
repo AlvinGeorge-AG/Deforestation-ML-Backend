@@ -198,7 +198,9 @@ def fetch_sentinel_patch(
         raise ValueError(f"No imagery at ({lat}, {lon})")
 
     # ── NEW: use getDownloadURL instead of sampleRectangle ──
-    import requests, tempfile, rasterio
+    
+    import requests, tempfile
+    import imageio.v3 as iio
 
     url = image.select(BANDS).getDownloadURL({
         "region": region,
@@ -214,18 +216,19 @@ def fetch_sentinel_patch(
         f.write(r.content)
         tmp_path = f.name
 
-    with rasterio.open(tmp_path) as src:
-        arr = src.read().astype(np.float32)  # (4, H, W)
+    arr = iio.imread(tmp_path, plugin="tifffile")  # (H, W, 4)
+    arr = arr.astype(np.float32).transpose(2, 0, 1)  # (4, H, W)
 
     logger.info("Downloaded patch shape: %s, min: %.1f, max: %.1f",
                 arr.shape, arr.min(), arr.max())
 
-    # Resize each band to patch_size
     band_arrays = []
     for i in range(arr.shape[0]):
         band_arrays.append(_resize_band(arr[i], patch_size))
 
     return np.stack(band_arrays, axis=0)  # (4, 256, 256)
+
+
 
 def compute_ndvi_from_patch(patch: np.ndarray) -> float:
     """

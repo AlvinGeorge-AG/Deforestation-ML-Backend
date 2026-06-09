@@ -8,5 +8,5 @@ numpy
 Pillow
 python-dotenv
 requests
-rasterio
-GDAL
+imageio
+tifffile
