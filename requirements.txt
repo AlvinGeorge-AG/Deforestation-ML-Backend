@@ -7,4 +7,6 @@ earthengine-api
 numpy
 Pillow
 python-dotenv
+requests
 rasterio
+GDAL
