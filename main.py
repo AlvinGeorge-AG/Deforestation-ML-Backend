@@ -69,25 +69,18 @@ app.add_middleware(
 model = None
 
 
-# @app.on_event("startup")
-# def startup() -> None:
-#     """Load ML model and initialize Google Earth Engine on server start."""
-#     global model
-#     logger.info("Loading U-Net model (V3, 8-channel)…")
-#     model = load_model("best_model.pth")
-#     logger.info("Model loaded ✓")
-
-#     logger.info("Initializing Google Earth Engine…")
-#     init_gee()
-#     logger.info("GEE initialized ✓")
-
 @app.on_event("startup")
-def startup():
+def startup() -> None:
+    """Load ML model and initialize Google Earth Engine on server start."""
     global model
-
-    logger.info("Loading model...")
+    logger.info("Loading U-Net model (V3, 8-channel)…")
     model = load_model("best_model.pth")
-    logger.info("Model loaded")
+    logger.info("Model loaded ✓")
+
+    logger.info("Initializing Google Earth Engine…")
+    init_gee()
+    logger.info("GEE initialized ✓")
+
 
 # ---------------------------------------------------------------------------
 # Schemas
