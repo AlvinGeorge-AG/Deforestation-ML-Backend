@@ -157,12 +157,6 @@ def _resize_band(arr: np.ndarray, size: int) -> np.ndarray:
 
 
 
-# Map "year" to the actual date ranges used in training
-DATE_RANGES = {
-    "before": ("2018-01-01", "2019-12-31"),
-    "after":  ("2023-01-01", "2025-05-31"),
-}
-
 def fetch_sentinel_patch(
     lat: float,
     lon: float,
@@ -173,7 +167,6 @@ def fetch_sentinel_patch(
     point = ee.Geometry.Point([lon, lat])
     region = point.buffer(1200).bounds()
 
-    # Use training date ranges instead of full calendar year
     if year <= 2020:
         start, end = "2018-01-01", "2019-12-31"
     else:
@@ -185,8 +178,7 @@ def fetch_sentinel_patch(
         .filterDate(start, end)
         .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 20))
         .map(lambda img: img.updateMask(
-            img.select('QA60')
-            .bitwiseAnd(1 << 10).eq(0)
+            img.select('QA60').bitwiseAnd(1 << 10).eq(0)
             .And(img.select('QA60').bitwiseAnd(1 << 11).eq(0))
         ))
     )
@@ -203,23 +195,37 @@ def fetch_sentinel_patch(
 
     band_names = image.bandNames().getInfo()
     if not band_names:
-        raise ValueError(
-            f"No Sentinel-2 imagery available at ({lat}, {lon})"
-        )
+        raise ValueError(f"No imagery at ({lat}, {lon})")
 
-    multi_band = image.select(BANDS)
-    sample = multi_band.sampleRectangle(region=region, defaultValue=0)
-    properties = sample.getInfo()["properties"]
+    # ── NEW: use getDownloadURL instead of sampleRectangle ──
+    import requests, tempfile, rasterio
 
+    url = image.select(BANDS).getDownloadURL({
+        "region": region,
+        "scale": 10,
+        "format": "GEO_TIFF",
+        "crs": "EPSG:4326",
+    })
+
+    r = requests.get(url, timeout=60)
+    r.raise_for_status()
+
+    with tempfile.NamedTemporaryFile(suffix=".tif", delete=False) as f:
+        f.write(r.content)
+        tmp_path = f.name
+
+    with rasterio.open(tmp_path) as src:
+        arr = src.read().astype(np.float32)  # (4, H, W)
+
+    logger.info("Downloaded patch shape: %s, min: %.1f, max: %.1f",
+                arr.shape, arr.min(), arr.max())
+
+    # Resize each band to patch_size
     band_arrays = []
-    for band in BANDS:
-        arr = np.array(properties[band], dtype=np.float32)
-        logger.info("Band %s — min: %.1f, max: %.1f, mean: %.1f",
-                    band, arr.min(), arr.max(), arr.mean())
-        arr = _resize_band(arr, patch_size)
-        band_arrays.append(arr)
+    for i in range(arr.shape[0]):
+        band_arrays.append(_resize_band(arr[i], patch_size))
 
-    return np.stack(band_arrays, axis=0)
+    return np.stack(band_arrays, axis=0)  # (4, 256, 256)
 
 def compute_ndvi_from_patch(patch: np.ndarray) -> float:
     """
