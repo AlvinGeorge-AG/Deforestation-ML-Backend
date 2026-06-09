@@ -149,6 +149,14 @@ def normalize_bands(patch: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@app.get("/")
+def home():
+    return {
+        "status": "running",
+        "message": "Kerala Deforestation Detector API"
+    }
+
 @app.get("/health")
 def health():
     """Liveness check."""
