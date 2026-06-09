@@ -69,18 +69,25 @@ app.add_middleware(
 model = None
 
 
+# @app.on_event("startup")
+# def startup() -> None:
+#     """Load ML model and initialize Google Earth Engine on server start."""
+#     global model
+#     logger.info("Loading U-Net model (V3, 8-channel)…")
+#     model = load_model("best_model.pth")
+#     logger.info("Model loaded ✓")
+
+#     logger.info("Initializing Google Earth Engine…")
+#     init_gee()
+#     logger.info("GEE initialized ✓")
+
 @app.on_event("startup")
-def startup() -> None:
-    """Load ML model and initialize Google Earth Engine on server start."""
+def startup():
     global model
-    logger.info("Loading U-Net model (V3, 8-channel)…")
+
+    logger.info("Loading model...")
     model = load_model("best_model.pth")
-    logger.info("Model loaded ✓")
-
-    logger.info("Initializing Google Earth Engine…")
-    init_gee()
-    logger.info("GEE initialized ✓")
-
+    logger.info("Model loaded")
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -186,7 +193,8 @@ def analyze(req: AnalyzeRequest):
     )
 
     with torch.no_grad():
-        logits = model(input_tensor)                                      # (1, 1, 256, 256)
+        logits = model(input_tensor)      
+        input_tensor = input_tensor.to(next(model.parameters()).device)                                # (1, 1, 256, 256)
         probs = torch.sigmoid(logits)                                     # sigmoid on logits
         binary_mask = (probs > 0.5).int().squeeze().numpy()               # (256, 256)
 
