@@ -1,43 +1,57 @@
 ---
-title: Deforestation-Detector
-emoji: 🚀
-colorFrom: blue
-colorTo: pink
+title: Kerala Deforestation Detector
+emoji: 🌿
+colorFrom: green
+colorTo: green
 sdk: docker
 sdk_version: 5.0.0
 app_file: main.py
 pinned: false
 ---
 
+<h1 align="center">🌿 Kerala Deforestation Detector</h1>
 
-# Deforestation Detector — Backend (V3)
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi&logoColor=white"/>
+  <img src="https://img.shields.io/badge/PyTorch-2.0+-EE4C2C?style=flat-square&logo=pytorch&logoColor=white"/>
+  <img src="https://img.shields.io/badge/U--Net-ResNet34-blue?style=flat-square"/>
+  <img src="https://img.shields.io/badge/Google%20Earth%20Engine-Sentinel--2-4285F4?style=flat-square&logo=google&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Deployed-HuggingFace%20Spaces-FFD21E?style=flat-square&logo=huggingface&logoColor=black"/>
+</p>
 
-FastAPI backend that bridges the React frontend with a V3 U-Net deforestation detection model and Google Earth Engine satellite data.
+<p align="center">
+  FastAPI backend for pixel-level deforestation detection over Kerala using Sentinel-2 satellite imagery and a trained U-Net segmentation model.
+</p>
 
-## V3 Model Architecture
+---
+
+## Model Architecture
 
 ```
 Input:  8 channels — B2, B3, B4, B8 (before) + B2, B3, B4, B8 (after)
 Model:  U-Net with ResNet-34 encoder
 Output: 1 channel (logits → sigmoid → binary mask)
 Labels: Dynamic World forest cover
-Loss:   BCEWithLogitsLoss
+Loss:   0.5 × DiceLoss + 0.5 × BCEWithLogitsLoss
+Val IoU: ~0.36
 ```
 
-## Architecture
+## Inference Pipeline
 
 ```
 POST /analyze
-  → GEE: fetch B2, B3, B4, B8 for year_a & year_b
+  → GEE: fetch B2, B3, B4, B8 composites for year_a & year_b
   → Normalize [0, 10000] → [0, 1]
   → Stack → (1, 8, 256, 256) tensor
-  → U-Net inference (logits → sigmoid → threshold 0.5)
-  → Return mask + stats
+  → U-Net inference → sigmoid → threshold 0.5
+  → Return deforestation mask + statistics
 ```
 
-## Setup
+---
 
-### 1. Python environment
+## Local Setup
+
+**1. Python environment**
 
 ```bash
 python -m venv venv
@@ -45,47 +59,55 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Google Earth Engine authentication (local dev)
+**2. Google Earth Engine authentication**
 
 ```bash
-pip install earthengine-api
 earthengine authenticate
 ```
 
-### 3. Model weights
+**3. Model weights**
 
-Place `best_model.pth` in this directory.  
-Generate it from the V3 training notebook (`deforestation_detector.ipynb`).
+Place `best_model.pth` in the project root.
+Generate it from the training notebook: `deforestation_detector.ipynb`
 
-### 4. Run
+**4. Run**
 
 ```bash
 uvicorn main:app --reload
 ```
 
-Server starts at **http://localhost:8000**.  
-Docs at **http://localhost:8000/docs**.
+API live at `http://localhost:8000` · Docs at `http://localhost:8000/docs`
 
-## API
+---
+
+## API Reference
 
 ### `GET /health`
-Returns `{"status": "ok"}`.
+
+```json
+{ "status": "ok" }
+```
 
 ### `POST /analyze`
-**Request:**
+
+**Request**
+
 ```json
 {
   "lat": 10.5,
   "lon": 76.2,
-  "year_a": 2015,
-  "year_b": 2023
+  "year_a": 2018,
+  "year_b": 2024
 }
 ```
 
-**Response:**
+> `year_a ≤ 2020` uses 2018–2019 composite. `year_b > 2020` uses 2023–2025 composite.
+
+**Response**
+
 ```json
 {
-  "mask_image": "<base64 PNG>",
+  "mask_image": "<base64 RGBA PNG>",
   "pct_lost": 12.5,
   "area_sqkm": 0.8192,
   "ndvi_before": 0.6234,
@@ -95,16 +117,18 @@ Returns `{"status": "ok"}`.
 }
 ```
 
-> Note: `ndvi_before` and `ndvi_after` are computed from B4/B8 bands for display purposes.
+---
 
 ## Deploy to Hugging Face Spaces
 
 1. Create a new Space → type: **Docker**
 2. Upload all files including `best_model.pth`
-3. Add secrets:
+3. Add Secrets:
    - `GEE_SA_EMAIL` — service account email
    - `GEE_CREDENTIALS` — service account JSON key
-4. The Dockerfile exposes port **7860** (HF default)
+4. Dockerfile exposes port **7860**
+
+---
 
 ## Project Structure
 
@@ -113,9 +137,9 @@ BE/
 ├── main.py            # FastAPI app — 8-channel V3 pipeline
 ├── model.py           # U-Net loader (8 in_channels)
 ├── gee_utils.py       # GEE: 4-band patch fetch + NDVI + thumbnails
-├── best_model.pth     # V3 trained weights (not in git)
-├── requirements.txt   # Python dependencies
-├── Dockerfile         # HF Spaces / Docker deployment
-├── .env.example       # Environment variable template
+├── best_model.pth     # Trained weights (not in git)
+├── requirements.txt
+├── Dockerfile
+├── .env.example
 └── .gitignore
 ```
