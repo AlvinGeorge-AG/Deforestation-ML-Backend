@@ -68,7 +68,6 @@ earthengine authenticate
 **3. Model weights**
 
 Place `best_model.pth` in the project root.
-Generate it from the training notebook: `deforestation_detector.ipynb`
 
 **4. Run**
 
@@ -137,7 +136,7 @@ BE/
 ├── main.py            # FastAPI app — 8-channel V3 pipeline
 ├── model.py           # U-Net loader (8 in_channels)
 ├── gee_utils.py       # GEE: 4-band patch fetch + NDVI + thumbnails
-├── best_model.pth     # Trained weights (not in git)
+├── best_model.pth     # Trained weights 
 ├── requirements.txt
 ├── Dockerfile
 ├── .env.example
