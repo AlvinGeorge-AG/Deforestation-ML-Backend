@@ -51,20 +51,48 @@ def init_gee() -> None:
     logger.info("GEE initialized successfully")
 
 
+# def _get_sentinel_collection(
+#     region: ee.Geometry,
+#     year: int,
+#     cloud_pct: int = 10,
+# ) -> ee.ImageCollection:
+#     """
+#     Return a filtered Sentinel-2 SR Harmonized collection for a region/year.
+#     """
+#     return (
+#         ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+#         .filterBounds(region)
+#         .filterDate(f"{year}-01-01", f"{year}-12-31")
+#         .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", cloud_pct))
+#     )
+
+
 def _get_sentinel_collection(
     region: ee.Geometry,
     year: int,
     cloud_pct: int = 10,
 ) -> ee.ImageCollection:
-    """
-    Return a filtered Sentinel-2 SR Harmonized collection for a region/year.
-    """
-    return (
+    collection = (
         ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterBounds(region)
         .filterDate(f"{year}-01-01", f"{year}-12-31")
         .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", cloud_pct))
     )
+
+    # Fallback: relax cloud filter if no images found
+    if collection.size().getInfo() == 0:
+        logger.warning(
+            "No images found for year=%s with cloud_pct=%s, relaxing to 50%%",
+            year, cloud_pct
+        )
+        collection = (
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterBounds(region)
+            .filterDate(f"{year}-01-01", f"{year}-12-31")
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 50))
+        )
+
+    return collection
 
 
 def _resize_band(arr: np.ndarray, size: int) -> np.ndarray:
@@ -102,6 +130,13 @@ def fetch_sentinel_patch(
 
     collection = _get_sentinel_collection(region, year, cloud_pct)
     image = collection.median().clip(region)
+
+    # Guard: verify bands exist before selecting
+    band_names = image.bandNames().getInfo()
+    if not band_names:
+        raise ValueError(
+            f"No Sentinel-2 imagery available at ({lat}, {lon}) for year {year}"
+        )
 
     # Select the 4 bands
     multi_band = image.select(BANDS)
