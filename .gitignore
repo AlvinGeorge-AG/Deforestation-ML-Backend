@@ -1,5 +1,3 @@
-# Model weights (too large for git — use Git LFS or download separately)
-best_model.pth
 
 # Environment
 .env
