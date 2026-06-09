@@ -102,6 +102,61 @@ def _resize_band(arr: np.ndarray, size: int) -> np.ndarray:
     return np.array(img, dtype=np.float32)
 
 
+# def fetch_sentinel_patch(
+#     lat: float,
+#     lon: float,
+#     year: int,
+#     cloud_pct: int = 10,
+#     patch_size: int = 256,
+# ) -> np.ndarray:
+#     """
+#     Fetch a 4-band (B2, B3, B4, B8) Sentinel-2 patch as a numpy array.
+
+#     Args:
+#         lat:        Latitude of center point.
+#         lon:        Longitude of center point.
+#         year:       Calendar year to composite.
+#         cloud_pct:  Max cloud pixel percentage filter.
+#         patch_size: Output patch dimension (square).
+
+#     Returns:
+#         np.ndarray of shape (4, patch_size, patch_size), dtype float32.
+#         Band order: [B2, B3, B4, B8].
+#         Values are raw Sentinel-2 surface reflectance (typically 0–10000).
+#     """
+#     point = ee.Geometry.Point([lon, lat])
+#     # ~2.56 km × 2.56 km at 10 m resolution → 256 pixels
+#     # region = point.buffer(1280).bounds()
+#     region = point.buffer(1200).bounds()  # was 1280, go slightly smaller
+
+#     collection = _get_sentinel_collection(region, year, cloud_pct)
+#     image = collection.median().clip(region)
+
+#     # Guard: verify bands exist before selecting
+#     band_names = image.bandNames().getInfo()
+#     if not band_names:
+#         raise ValueError(
+#             f"No Sentinel-2 imagery available at ({lat}, {lon}) for year {year}"
+#         )
+
+#     # Select the 4 bands
+#     multi_band = image.select(BANDS)
+
+#     # Download as numpy via sampleRectangle
+#     sample = multi_band.sampleRectangle(region=region, defaultValue=0)
+#     properties = sample.getInfo()["properties"]
+
+#     # Stack bands into (4, H, W) array, resizing each to patch_size
+#     band_arrays = []
+#     for band in BANDS:
+#         arr = np.array(properties[band], dtype=np.float32)
+#         arr = _resize_band(arr, patch_size)
+#         band_arrays.append(arr)
+
+#     return np.stack(band_arrays, axis=0)  # (4, 256, 256)
+
+
+
 def fetch_sentinel_patch(
     lat: float,
     lon: float,
@@ -109,52 +164,35 @@ def fetch_sentinel_patch(
     cloud_pct: int = 10,
     patch_size: int = 256,
 ) -> np.ndarray:
-    """
-    Fetch a 4-band (B2, B3, B4, B8) Sentinel-2 patch as a numpy array.
-
-    Args:
-        lat:        Latitude of center point.
-        lon:        Longitude of center point.
-        year:       Calendar year to composite.
-        cloud_pct:  Max cloud pixel percentage filter.
-        patch_size: Output patch dimension (square).
-
-    Returns:
-        np.ndarray of shape (4, patch_size, patch_size), dtype float32.
-        Band order: [B2, B3, B4, B8].
-        Values are raw Sentinel-2 surface reflectance (typically 0–10000).
-    """
     point = ee.Geometry.Point([lon, lat])
-    # ~2.56 km × 2.56 km at 10 m resolution → 256 pixels
-    # region = point.buffer(1280).bounds()
-    region = point.buffer(1200).bounds()  # was 1280, go slightly smaller
+    region = point.buffer(1200).bounds()  # changed from 1280
 
     collection = _get_sentinel_collection(region, year, cloud_pct)
     image = collection.median().clip(region)
 
-    # Guard: verify bands exist before selecting
     band_names = image.bandNames().getInfo()
     if not band_names:
         raise ValueError(
             f"No Sentinel-2 imagery available at ({lat}, {lon}) for year {year}"
         )
 
-    # Select the 4 bands
     multi_band = image.select(BANDS)
-
-    # Download as numpy via sampleRectangle
     sample = multi_band.sampleRectangle(region=region, defaultValue=0)
     properties = sample.getInfo()["properties"]
 
-    # Stack bands into (4, H, W) array, resizing each to patch_size
+    # ← ADD THIS
+    for band in BANDS:
+        arr = np.array(properties[band], dtype=np.float32)
+        logger.info("Band %s — shape: %s, min: %.1f, max: %.1f, mean: %.1f",
+                    band, arr.shape, arr.min(), arr.max(), arr.mean())
+
     band_arrays = []
     for band in BANDS:
         arr = np.array(properties[band], dtype=np.float32)
         arr = _resize_band(arr, patch_size)
         band_arrays.append(arr)
 
-    return np.stack(band_arrays, axis=0)  # (4, 256, 256)
-
+    return np.stack(band_arrays, axis=0)
 
 def compute_ndvi_from_patch(patch: np.ndarray) -> float:
     """
