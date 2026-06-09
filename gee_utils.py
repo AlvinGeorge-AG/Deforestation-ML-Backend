@@ -157,6 +157,12 @@ def _resize_band(arr: np.ndarray, size: int) -> np.ndarray:
 
 
 
+# Map "year" to the actual date ranges used in training
+DATE_RANGES = {
+    "before": ("2018-01-01", "2019-12-31"),
+    "after":  ("2023-01-01", "2025-05-31"),
+}
+
 def fetch_sentinel_patch(
     lat: float,
     lon: float,
@@ -165,30 +171,51 @@ def fetch_sentinel_patch(
     patch_size: int = 256,
 ) -> np.ndarray:
     point = ee.Geometry.Point([lon, lat])
-    region = point.buffer(1200).bounds()  # changed from 1280
+    region = point.buffer(1200).bounds()
 
-    collection = _get_sentinel_collection(region, year, cloud_pct)
+    # Use training date ranges instead of full calendar year
+    if year <= 2020:
+        start, end = "2018-01-01", "2019-12-31"
+    else:
+        start, end = "2023-01-01", "2025-05-31"
+
+    collection = (
+        ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+        .filterBounds(region)
+        .filterDate(start, end)
+        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 20))
+        .map(lambda img: img.updateMask(
+            img.select('QA60')
+            .bitwiseAnd(1 << 10).eq(0)
+            .And(img.select('QA60').bitwiseAnd(1 << 11).eq(0))
+        ))
+    )
+
+    if collection.size().getInfo() == 0:
+        collection = (
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterBounds(region)
+            .filterDate(start, end)
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 50))
+        )
+
     image = collection.median().clip(region)
 
     band_names = image.bandNames().getInfo()
     if not band_names:
         raise ValueError(
-            f"No Sentinel-2 imagery available at ({lat}, {lon}) for year {year}"
+            f"No Sentinel-2 imagery available at ({lat}, {lon})"
         )
 
     multi_band = image.select(BANDS)
     sample = multi_band.sampleRectangle(region=region, defaultValue=0)
     properties = sample.getInfo()["properties"]
 
-    # ← ADD THIS
-    for band in BANDS:
-        arr = np.array(properties[band], dtype=np.float32)
-        logger.info("Band %s — shape: %s, min: %.1f, max: %.1f, mean: %.1f",
-                    band, arr.shape, arr.min(), arr.max(), arr.mean())
-
     band_arrays = []
     for band in BANDS:
         arr = np.array(properties[band], dtype=np.float32)
+        logger.info("Band %s — min: %.1f, max: %.1f, mean: %.1f",
+                    band, arr.min(), arr.max(), arr.mean())
         arr = _resize_band(arr, patch_size)
         band_arrays.append(arr)
 

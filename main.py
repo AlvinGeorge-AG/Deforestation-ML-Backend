@@ -89,8 +89,18 @@ class AnalyzeRequest(BaseModel):
     """Request body for the /analyze endpoint."""
     lat: float = Field(..., description="Latitude of the center point", ge=-90, le=90)
     lon: float = Field(..., description="Longitude of the center point", ge=-180, le=180)
-    year_a: int = Field(..., description="Starting year (before)", ge=2015, le=2026)
-    year_b: int = Field(..., description="Ending year (after)", ge=2015, le=2026)
+    year_a: int = Field(
+        ...,
+        description="Before year — any year ≤2020 uses 2018-2019 composite",
+        ge=2015,
+        le=2026
+    )
+    year_b: int = Field(
+        ...,
+        description="After year — any year >2020 uses 2023-2025 composite",
+        ge=2015,
+        le=2026
+    )
 
 
 class AnalyzeResponse(BaseModel):
