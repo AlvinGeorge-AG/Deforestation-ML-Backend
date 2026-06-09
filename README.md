@@ -1,3 +1,15 @@
+---
+title: My Cool App
+emoji: 🚀
+colorFrom: blue
+colorTo: pink
+sdk: docker
+sdk_version: 5.0.0
+app_file: main.py
+pinned: false
+---
+
+
 # Deforestation Detector — Backend (V3)
 
 FastAPI backend that bridges the React frontend with a V3 U-Net deforestation detection model and Google Earth Engine satellite data.
