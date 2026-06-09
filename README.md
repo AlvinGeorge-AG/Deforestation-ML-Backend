@@ -1,5 +1,5 @@
 ---
-title: My Cool App
+title: Deforestation-Detector
 emoji: 🚀
 colorFrom: blue
 colorTo: pink
