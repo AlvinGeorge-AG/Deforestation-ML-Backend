@@ -1,0 +1,16 @@
+# Model weights (too large for git — use Git LFS or download separately)
+best_model.pth
+
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/

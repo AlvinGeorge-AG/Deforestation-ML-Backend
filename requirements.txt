@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+torch
+torchvision
+segmentation-models-pytorch
+earthengine-api
+numpy
+Pillow
+python-dotenv
