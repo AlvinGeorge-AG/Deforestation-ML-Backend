@@ -194,10 +194,10 @@ def analyze(req: AnalyzeRequest):
     )
 
     with torch.no_grad():
-        logits = model(input_tensor)      
-        input_tensor = input_tensor.to(next(model.parameters()).device)                                # (1, 1, 256, 256)
-        probs = torch.sigmoid(logits)                                     # sigmoid on logits
-        binary_mask = (probs > 0.5).int().squeeze().numpy()               # (256, 256)
+        input_tensor = input_tensor.to(next(model.parameters()).device)  # move FIRST
+        logits = model(input_tensor)
+        probs = torch.sigmoid(logits)
+        binary_mask = (probs > 0.5).int().squeeze().numpy()            # (256, 256)
 
     # ---- Step 4: Compute statistics ----
     total_pixels = 256 * 256
@@ -222,10 +222,15 @@ def analyze(req: AnalyzeRequest):
         thumb_b = ""
 
     # ---- Step 7: Encode mask and return ----
+    # logger.info(
+    #     "Analysis complete — %.2f%% deforested (%.4f km²), NDVI: %.4f → %.4f",
+    #     pct_lost, area_sqkm, ndvi_before, ndvi_after,
+    # )
+    # After fetching patch, log the actual values
     logger.info(
-        "Analysis complete — %.2f%% deforested (%.4f km²), NDVI: %.4f → %.4f",
-        pct_lost, area_sqkm, ndvi_before, ndvi_after,
-    )
+        "patch_before stats — min: %.2f, max: %.2f, mean: %.2f",
+        patch_before.min(), patch_before.max(), patch_before.mean()
+)
 
     return AnalyzeResponse(
         mask_image=mask_to_base64_png(binary_mask),

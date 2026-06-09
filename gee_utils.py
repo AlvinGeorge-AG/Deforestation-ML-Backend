@@ -126,7 +126,8 @@ def fetch_sentinel_patch(
     """
     point = ee.Geometry.Point([lon, lat])
     # ~2.56 km × 2.56 km at 10 m resolution → 256 pixels
-    region = point.buffer(1280).bounds()
+    # region = point.buffer(1280).bounds()
+    region = point.buffer(1200).bounds()  # was 1280, go slightly smaller
 
     collection = _get_sentinel_collection(region, year, cloud_pct)
     image = collection.median().clip(region)
